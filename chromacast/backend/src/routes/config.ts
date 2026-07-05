@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { setConfig, isConfigured } from "../config";
+import { updateSettings, isConfigured } from "../settings";
 
 const router = Router();
 
@@ -23,7 +23,7 @@ router.post("/", (req: Request, res: Response) => {
     return;
   }
 
-  setConfig({
+  updateSettings({
     spotifyClientId,
     spotifyClientSecret,
     spotifyRedirectUri,

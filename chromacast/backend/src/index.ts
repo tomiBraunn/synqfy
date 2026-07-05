@@ -6,6 +6,9 @@ import fs from "fs";
 import configRoutes from "./routes/config";
 import authRoutes from "./routes/auth";
 import spotifyRoutes from "./routes/spotify";
+import settingsRoutes from "./routes/settings";
+import { loadSettings } from "./settings";
+import { restoreSessionFromRefreshToken } from "./services/spotify";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -18,6 +21,7 @@ app.use(express.json());
 app.use("/api/config", configRoutes);
 app.use("/auth", authRoutes);
 app.use("/api", spotifyRoutes);
+app.use("/api/settings", settingsRoutes);
 
 if (isProd) {
   const candidates = [
@@ -36,6 +40,11 @@ if (isProd) {
     res.json({ app: "chromacast", status: "running" });
   });
 }
+
+loadSettings();
+restoreSessionFromRefreshToken().then(restored => {
+  if (restored) console.log("Spotify session restored from saved refresh token");
+});
 
 app.listen(PORT, () => {
   console.log(`chromacast backend running on http://localhost:${PORT}`);

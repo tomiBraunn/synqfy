@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getConfig } from "../config";
+import { getSettings, updateSettings } from "../settings";
 
 interface SpotifyToken {
   access_token: string;
@@ -10,11 +10,8 @@ interface SpotifyToken {
 let token: SpotifyToken | null = null;
 
 function getClientCredentials() {
-  const cfg = getConfig();
-  return {
-    clientId: cfg?.spotifyClientId || process.env.SPOTIFY_CLIENT_ID!,
-    clientSecret: cfg?.spotifyClientSecret || process.env.SPOTIFY_CLIENT_SECRET!,
-  };
+  const s = getSettings();
+  return { clientId: s.spotifyClientId, clientSecret: s.spotifyClientSecret };
 }
 
 function isExpired(): boolean {
@@ -40,6 +37,7 @@ async function refreshAccessToken(): Promise<void> {
 
   if (res.data.refresh_token) {
     token!.refresh_token = res.data.refresh_token;
+    updateSettings({ spotifyRefreshToken: res.data.refresh_token });
   }
 }
 
@@ -49,6 +47,20 @@ export function setToken(accessToken: string, refreshToken: string, expiresIn: n
     refresh_token: refreshToken,
     expires_at: Date.now() + expiresIn * 1000,
   };
+  updateSettings({ spotifyRefreshToken: refreshToken });
+}
+
+export async function restoreSessionFromRefreshToken(): Promise<boolean> {
+  const saved = getSettings().spotifyRefreshToken;
+  if (!saved) return false;
+  token = { access_token: "", refresh_token: saved, expires_at: 0 };
+  try {
+    await refreshAccessToken();
+    return true;
+  } catch {
+    token = null;
+    return false;
+  }
 }
 
 export function getToken(): SpotifyToken | null {

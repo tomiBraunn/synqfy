@@ -1,9 +1,5 @@
 import axios from "axios";
-import { getConfig } from "../config";
-
-function parseIds(env: string | undefined): string[] {
-  return (env || "").split(",").map((s: string) => s.trim()).filter(Boolean);
-}
+import { getSettings } from "../settings";
 
 export interface LightUpdateOptions {
   brightness?: number;
@@ -18,23 +14,17 @@ export async function updateLights(
   secondaryColor: [number, number, number],
   options: LightUpdateOptions = {}
 ): Promise<void> {
-  const cfg = getConfig();
-  const haUrl = cfg?.haUrl || process.env.HA_URL;
-  const haToken = cfg?.haToken || process.env.HA_TOKEN;
+  const s = getSettings();
+  const haUrl = s.haUrl;
+  const haToken = s.haToken;
 
   if (!haUrl || !haToken) {
     throw new Error("Home Assistant is not configured");
   }
 
-  const primaryIds = cfg?.primaryEntityIds?.length
-    ? cfg.primaryEntityIds
-    : parseIds(process.env.HA_ENTITY_IDS_PRIMARY || process.env.HA_ENTITY_ID);
-
-  const secondaryIds = cfg?.secondaryEntityIds?.length
-    ? cfg.secondaryEntityIds
-    : parseIds(process.env.HA_ENTITY_IDS_SECONDARY);
-
-  const allIds = parseIds(process.env.HA_ENTITY_IDS);
+  const primaryIds = s.primaryEntityIds;
+  const secondaryIds = s.secondaryEntityIds;
+  const allIds: string[] = [];
 
   const brightness = options.brightness ?? 255;
   const transition = options.transition ?? 1.5;

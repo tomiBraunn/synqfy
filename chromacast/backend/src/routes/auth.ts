@@ -1,16 +1,16 @@
 import { Router, Request, Response } from "express";
 import axios from "axios";
 import { setToken, isAuthenticated } from "../services/spotify";
-import { getConfig } from "../config";
+import { getSettings } from "../settings";
 
 const router = Router();
 
 function getCredentials() {
-  const cfg = getConfig();
+  const s = getSettings();
   return {
-    clientId: cfg?.spotifyClientId || process.env.SPOTIFY_CLIENT_ID!,
-    clientSecret: cfg?.spotifyClientSecret || process.env.SPOTIFY_CLIENT_SECRET!,
-    redirectUri: cfg?.spotifyRedirectUri || process.env.SPOTIFY_REDIRECT_URI!,
+    clientId: s.spotifyClientId,
+    clientSecret: s.spotifyClientSecret,
+    redirectUri: s.spotifyRedirectUri,
   };
 }
 
