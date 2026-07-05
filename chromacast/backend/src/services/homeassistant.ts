@@ -79,3 +79,26 @@ async function sendColor(
     }
   );
 }
+
+export async function turnOffAllLights(transition = 3): Promise<void> {
+  const s = getSettings();
+  if (!s.haUrl || !s.haToken) {
+    throw new Error("Home Assistant is not configured");
+  }
+  const ids = [...s.primaryEntityIds, ...s.secondaryEntityIds];
+  if (ids.length === 0) {
+    throw new Error("No light entities configured");
+  }
+  await Promise.all(
+    ids.map(id =>
+      axios.post(
+        `${s.haUrl}/api/services/light/turn_off`,
+        { entity_id: id, transition },
+        {
+          headers: { Authorization: `Bearer ${s.haToken}`, "Content-Type": "application/json" },
+          timeout: 5000,
+        }
+      )
+    )
+  );
+}
