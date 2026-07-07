@@ -1,5 +1,6 @@
 node_modules/
 dist/
 .env
-chromacast/backend/data/
+synqfy/backend/data/
 *.log
+.vscode/
