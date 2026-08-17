@@ -10,6 +10,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Si pusheás dos veces seguidas, la primera se cancela: evita que dos builds
+# se peleen por el tag latest y quede publicada la vieja.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest

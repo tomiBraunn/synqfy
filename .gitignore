@@ -4,3 +4,6 @@ dist/
 synqfy/backend/data/
 *.log
 .vscode/
+
+# cache incremental de tsc, no va al repo
+*.tsbuildinfo
