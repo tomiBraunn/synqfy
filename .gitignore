@@ -7,3 +7,5 @@ synqfy/backend/data/
 
 # cache incremental de tsc, no va al repo
 *.tsbuildinfo
+# cache del dev server de vite
+.vite/
