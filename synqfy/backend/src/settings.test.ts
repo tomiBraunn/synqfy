@@ -18,6 +18,7 @@ beforeEach(() => {
   process.env.DATA_DIR = tmpDir;
   delete process.env.SPOTIFY_CLIENT_ID;
   delete process.env.HA_URL;
+  delete process.env.HA_ENTITY_IDS_PRIMARY;
   resetSettingsForTest();
 });
 
@@ -26,6 +27,7 @@ afterEach(() => {
   delete process.env.DATA_DIR;
   delete process.env.SPOTIFY_CLIENT_ID;
   delete process.env.HA_URL;
+  delete process.env.HA_ENTITY_IDS_PRIMARY;
 });
 
 describe("settings", () => {
@@ -56,6 +58,26 @@ describe("settings", () => {
     expect(getSettings().nightMode.enabled).toBe(true);
     expect(getSettings().nightMode.maxBrightness).toBe(60);
     expect(getSettings().nightMode.start).toBe("23:00");
+  });
+
+  it("las env vars de lamparas solo siembran el primer arranque", () => {
+    process.env.HA_ENTITY_IDS_PRIMARY = "light.sembrada";
+    loadSettings(); // sin archivo todavia: la env siembra
+    expect(getSettings().primaryEntityIds).toEqual(["light.sembrada"]);
+
+    // Elegir lamparas desde la pagina gana, aunque la env siga puesta.
+    updateSettings({ primaryEntityIds: ["light.elegida"] });
+    expect(getSettings().primaryEntityIds).toEqual(["light.elegida"]);
+    resetSettingsForTest();
+    loadSettings();
+    expect(getSettings().primaryEntityIds).toEqual(["light.elegida"]);
+
+    // Sacar la ultima lampara del grupo tampoco se deshace solo.
+    updateSettings({ primaryEntityIds: [] });
+    resetSettingsForTest();
+    loadSettings();
+    expect(getSettings().primaryEntityIds).toEqual([]);
+    delete process.env.HA_ENTITY_IDS_PRIMARY;
   });
 
   it("las env vars tienen prioridad sobre lo guardado", () => {

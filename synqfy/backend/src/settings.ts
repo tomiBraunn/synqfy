@@ -21,7 +21,6 @@ export interface AppSettings {
   pauseBrightness: number; // 1-255, brillo al volver al color base
   pauseTimeoutSec: number;
   pauseAction: "baseColor" | "off";
-  partySpeedSec: number;
   nightMode: NightMode;
   lightsEnabled: boolean;
   spotifyRefreshToken: string;
@@ -40,7 +39,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pauseBrightness: 120,
   pauseTimeoutSec: 5,
   pauseAction: "baseColor",
-  partySpeedSec: 8,
   nightMode: { enabled: false, start: "23:00", end: "07:00", maxBrightness: 80 },
   lightsEnabled: false,
   spotifyRefreshToken: "",
@@ -57,16 +55,27 @@ function configFile(): string {
 }
 
 export function loadSettings(): void {
+  let parsed: Partial<AppSettings> = {};
   try {
-    const raw = fs.readFileSync(configFile(), "utf8");
-    const parsed = JSON.parse(raw);
-    settings = {
-      ...structuredClone(DEFAULT_SETTINGS),
-      ...parsed,
-      nightMode: { ...DEFAULT_SETTINGS.nightMode, ...(parsed.nightMode ?? {}) },
-    };
+    parsed = JSON.parse(fs.readFileSync(configFile(), "utf8"));
   } catch {
-    settings = structuredClone(DEFAULT_SETTINGS);
+    parsed = {};
+  }
+
+  settings = {
+    ...structuredClone(DEFAULT_SETTINGS),
+    ...parsed,
+    nightMode: { ...DEFAULT_SETTINGS.nightMode, ...(parsed.nightMode ?? {}) },
+  };
+
+  // Qué lámparas participan se elige desde la página, así que las env vars solo
+  // siembran el primer arranque (docker-compose). Si mandaran en cada lectura,
+  // poner una lámpara en "No" se desharía sola al releer los ajustes.
+  if (parsed.primaryEntityIds === undefined) {
+    settings.primaryEntityIds = parseIds(process.env.HA_ENTITY_IDS_PRIMARY);
+  }
+  if (parsed.secondaryEntityIds === undefined) {
+    settings.secondaryEntityIds = parseIds(process.env.HA_ENTITY_IDS_SECONDARY);
   }
 }
 
@@ -100,12 +109,6 @@ export function getSettings(): AppSettings {
   for (const [key, envName] of ENV_STRING_OVERRIDES) {
     const v = process.env[envName];
     if (v) (out as Record<keyof AppSettings, unknown>)[key] = v;
-  }
-  if (process.env.HA_ENTITY_IDS_PRIMARY) {
-    out.primaryEntityIds = parseIds(process.env.HA_ENTITY_IDS_PRIMARY);
-  }
-  if (process.env.HA_ENTITY_IDS_SECONDARY) {
-    out.secondaryEntityIds = parseIds(process.env.HA_ENTITY_IDS_SECONDARY);
   }
   return out;
 }
