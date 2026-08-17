@@ -45,7 +45,8 @@ Required scopes:
 1. Go to your Home Assistant instance → Profile → Long-Lived Access Tokens
 2. Create a new token
 3. Copy the token to `HA_TOKEN` in `backend/.env`
-4. Set `HA_ENTITY_IDS` to your light entities (e.g., `light.sala,light.cocina`)
+4. Pick which lamps follow the music in the app's **Luces** tab (the
+   `HA_ENTITY_IDS_*` env vars only seed the first run)
 5. Set `HA_URL` to your Home Assistant URL
 
 ## Mock Mode

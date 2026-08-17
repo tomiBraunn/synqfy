@@ -1,0 +1,15 @@
+# Para la Raspberry: baja la imagen ya compilada, no compila nada.
+#   docker compose -f docker-compose.pi.yml up -d
+# Actualizar a la última versión:
+#   docker compose -f docker-compose.pi.yml pull && docker compose -f docker-compose.pi.yml up -d
+services:
+  synqfy:
+    image: ghcr.io/tomibraunn/synqfy:latest
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    volumes:
+      # Acá viven la config y el refresh token de Spotify: hacele backup.
+      - ./data:/data
+    restart: unless-stopped

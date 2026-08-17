@@ -1,0 +1,68 @@
+name: build
+
+# Cada push a main compila la imagen y la sube a GHCR. La Raspberry solo hace
+# pull: nunca compila nada.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: backend
+        working-directory: synqfy/backend
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npm test
+      - name: frontend
+        working-directory: synqfy/frontend
+        run: |
+          npm ci
+          npm run build
+
+  image:
+    # Solo publicamos lo que pasó los tests.
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=tag
+            type=sha,format=short
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./synqfy
+          # arm64 para la Raspberry Pi 4/5 con SO de 64 bits; amd64 para probar
+          # la misma imagen en la compu.
+          platforms: linux/arm64,linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
