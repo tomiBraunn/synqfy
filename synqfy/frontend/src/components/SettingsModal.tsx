@@ -75,7 +75,12 @@ export default function SettingsModal({ open, onClose, onSaved }: SettingsModalP
     setSaving(true);
     setError("");
     try {
-      const res = await axios.put<AppSettings>("/api/settings", settings);
+      // Las lámparas se eligen en la pestaña Luces; el modal no las pisa con
+      // la copia que cargó al abrirse.
+      const patch: Partial<AppSettings> = { ...settings };
+      delete patch.primaryEntityIds;
+      delete patch.secondaryEntityIds;
+      const res = await axios.put<AppSettings>("/api/settings", patch);
       onSaved(res.data);
       onClose();
     } catch {
@@ -106,7 +111,13 @@ export default function SettingsModal({ open, onClose, onSaved }: SettingsModalP
               </label>
               <label>
                 Client Secret
-                <input type="password" value={settings.spotifyClientSecret} onChange={e => set("spotifyClientSecret", e.target.value)} />
+                <input
+                  type="password"
+                  value={settings.spotifyClientSecret}
+                  placeholder={settings.secretsSet?.spotifyClientSecret ? "•••••••• guardado" : "pegá el client secret"}
+                  onChange={e => set("spotifyClientSecret", e.target.value)}
+                />
+                <span className="field-hint">Vacío = se mantiene el guardado.</span>
               </label>
               <label>
                 Redirect URI
@@ -122,30 +133,27 @@ export default function SettingsModal({ open, onClose, onSaved }: SettingsModalP
               </label>
               <label>
                 Token
-                <input type="password" value={settings.haToken} onChange={e => set("haToken", e.target.value)} />
-              </label>
-              <label>
-                Entidades primarias
                 <input
-                  value={settings.primaryEntityIds.join(", ")}
-                  onChange={e => set("primaryEntityIds", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
-                  placeholder="light.sala"
+                  type="password"
+                  value={settings.haToken}
+                  placeholder={settings.secretsSet?.haToken ? "•••••••• guardado" : "pegá el long-lived token"}
+                  onChange={e => set("haToken", e.target.value)}
                 />
+                <span className="field-hint">Vacío = se mantiene el guardado.</span>
               </label>
-              <label>
-                Entidades secundarias
-                <input
-                  value={settings.secondaryEntityIds.join(", ")}
-                  onChange={e => set("secondaryEntityIds", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
-                  placeholder="light.cocina, light.jardin"
-                />
-              </label>
+              <p className="field-hint">
+                Qué lámpara usa cada color se elige en la pestaña <strong>Luces</strong>.
+              </p>
             </fieldset>
 
             <fieldset>
-              <legend>Al pausar</legend>
+              <legend>Color por defecto</legend>
+              <p className="field-hint">
+                Es a donde vuelven las lámparas cuando la música se pausa o se corta,
+                cuando las ponés en No, y cuando apagás la sincronización.
+              </p>
               <label>
-                Acción
+                Al pausar
                 <select
                   value={settings.pauseAction}
                   onChange={e => set("pauseAction", e.target.value as AppSettings["pauseAction"])}
@@ -155,7 +163,7 @@ export default function SettingsModal({ open, onClose, onSaved }: SettingsModalP
                 </select>
               </label>
               <label>
-                Segundos antes de actuar
+                Segundos en pausa antes de volver al color base
                 <input
                   type="number"
                   min={1}
@@ -165,7 +173,7 @@ export default function SettingsModal({ open, onClose, onSaved }: SettingsModalP
                 />
               </label>
               <label>
-                Brillo al pausar ({Math.round((settings.pauseBrightness / 255) * 100)}%)
+                Brillo del color base ({Math.round((settings.pauseBrightness / 255) * 100)}%)
                 <input
                   type="range"
                   min={1}

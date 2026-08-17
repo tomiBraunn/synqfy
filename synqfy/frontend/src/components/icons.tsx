@@ -73,6 +73,15 @@ export function IconVolume({ level, size = 18 }: IconProps & { level: "mute" | "
   );
 }
 
+export function IconBulb({ size = 16 }: IconProps) {
+  return (
+    <svg {...svgProps(size)} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 18h6M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-3.5 10.9c.4.3.5.7.5 1.1h6c0-.4.1-.8.5-1.1A6 6 0 0 0 12 3Z" fill="currentColor" fillOpacity={0.25} />
+    </svg>
+  );
+}
+
 export function IconMoon({ size = 14 }: IconProps) {
   return (
     <svg {...svgProps(size)}>

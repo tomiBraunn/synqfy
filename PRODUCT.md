@@ -11,8 +11,8 @@ mixto y multi-dispositivo: montado en una tablet o pantalla fija en la sala
 (mirado de lejos, luz ambiente tenue), controlado de cerca desde la laptop
 mientras hacen otra cosa, y como control remoto rápido desde el celular. El
 trabajo a resolver: ver qué suena y dejar que las luces de la casa sigan el
-ánimo de la música sin tener que tocar nada — y, cuando quieren, ajustar luces,
-modo fiesta, nocturno y letras a mano.
+ánimo de la música sin tener que tocar nada — y, cuando quieren, elegir qué
+lámparas participan, ajustar brillo, nocturno y letras a mano.
 
 ## Product Purpose
 
@@ -35,9 +35,10 @@ protagonismo a la música y a los colores que la música genera.
 
 ## Anti-references
 
-- **Degradados que llenan la pantalla.** Nada de fondos de color saturado de
-  borde a borde ni gradientes gigantes detrás de todo. La atmósfera viene de la
-  cover blureada + scrim, no de color plano a pantalla completa.
+- **Degradados que llenan la pantalla.** Nada de color plano de borde a borde.
+  El color extraído de la tapa —el mismo que Spotify pone alrededor de la
+  imagen— baja desde arriba y se apaga hacia el fondo, sobre la cover blureada
+  y debajo del scrim; nunca es una pared de color saturado.
 - **Dashboard SaaS genérico.** Sin grillas de cards idénticas, sin hero-metric
   (número gigante + label chico), sin eyebrows en mayúsculas tracked sobre cada
   sección.
@@ -58,8 +59,8 @@ protagonismo a la música y a los colores que la música genera.
 - **Un solo diseño para todos los tamaños.** Tablet-de-lejos, laptop-de-cerca y
   celular-en-mano comparten la misma UI; responsive de verdad, legible a 3
   metros y usable con una mano.
-- **El control es inmediato.** Toggle de luces, fiesta y ajustes responden ya;
-  el estado real (nocturno, error de HA, fiesta) siempre visible.
+- **El control es inmediato.** Toggle de luces, elegir lámparas y brillo
+  responden ya; el estado real (nocturno, error de HA) siempre visible.
 
 ## Accessibility & Inclusion
 

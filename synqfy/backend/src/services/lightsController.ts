@@ -1,6 +1,6 @@
-import { updateLights, turnOffAllLights } from "./homeassistant";
+import { updateLights, setEntitiesColor, turnOffAllLights } from "./homeassistant";
 import { getSettings } from "../settings";
-import { Palette, pickLightColor, pickSecondaryColor } from "../utils/colors";
+import { LightColors } from "../utils/colors";
 
 interface LightRunState {
   brightness: number;
@@ -57,17 +57,31 @@ export async function applyColors(
   }
 }
 
-export async function applyPalette(palette: Palette): Promise<void> {
-  await applyColors(pickLightColor(palette), pickSecondaryColor(palette));
+export async function applyLightColors(light: LightColors): Promise<void> {
+  await applyColors(light.primary, light.secondary);
 }
 
 export async function applyBaseColor(): Promise<void> {
+  const s = getSettings();
+  await applyBaseColorTo([...s.primaryEntityIds, ...s.secondaryEntityIds]);
+}
+
+// Devuelve lámparas puntuales al color base de ajustes: es lo que pasa cuando
+// una lámpara se saca del grupo o cuando se apaga la sincronización, sin tocar
+// las que sí siguen la música.
+export async function applyBaseColorTo(entityIds: string[]): Promise<void> {
+  if (entityIds.length === 0) return;
   const { defaultColor, defaultKelvin, pauseBrightness } = getSettings();
-  await applyColors(defaultColor, defaultColor, {
-    brightness: pauseBrightness,
-    transition: 3,
-    kelvin: defaultKelvin ?? undefined,
-  });
+  try {
+    await setEntitiesColor(entityIds, defaultColor, {
+      brightness: cappedBrightness(pauseBrightness),
+      transition: 3,
+      kelvin: defaultKelvin ?? undefined,
+    });
+    state.lastError = null;
+  } catch (err) {
+    state.lastError = err instanceof Error ? err.message : String(err);
+  }
 }
 
 export async function turnOff(): Promise<void> {

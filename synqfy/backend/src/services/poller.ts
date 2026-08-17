@@ -1,5 +1,5 @@
 import { getNowPlaying, isAuthenticated } from "./spotify";
-import { extractPalette, Palette } from "../utils/colors";
+import { extractPalette, Palette, LightColors, Rgb } from "../utils/colors";
 import { addToHistory } from "../store";
 import { onTrackChange, onPlayStateChange } from "./automation";
 
@@ -15,6 +15,8 @@ export interface PlayerSnapshot {
   durationMs?: number;
   volume?: number;
   palette?: Palette | null;
+  lightColors?: LightColors | null;
+  spotifyColor?: Rgb | null;
   fetchedAt: number;
   error?: string | null;
 }
@@ -44,9 +46,14 @@ export async function pollOnce(): Promise<void> {
     }
 
     let palette = snapshot.palette ?? null;
+    let lightColors = snapshot.lightColors ?? null;
+    let spotifyColor = snapshot.spotifyColor ?? null;
     if (data.id !== lastTrackId) {
       lastTrackId = data.id;
-      palette = await extractPalette(data.coverUrl).catch(() => null);
+      const extracted = await extractPalette(data.coverUrl).catch(() => null);
+      palette = extracted?.palette ?? null;
+      lightColors = extracted?.light ?? null;
+      spotifyColor = extracted?.spotify ?? null;
       if (palette) {
         addToHistory({
           id: data.id,
@@ -58,10 +65,10 @@ export async function pollOnce(): Promise<void> {
           palette,
         });
       }
-      onTrackChange(palette);
+      onTrackChange(lightColors);
     }
 
-    snapshot = { playing: true, ...data, palette, fetchedAt: Date.now(), error: null };
+    snapshot = { playing: true, ...data, palette, lightColors, spotifyColor, fetchedAt: Date.now(), error: null };
     onPlayStateChange(data.isPlaying);
   } catch (err) {
     snapshot = {

@@ -5,10 +5,34 @@ import { rgbToKelvin } from "../utils/colors";
 export interface LightUpdateOptions {
   brightness?: number;
   transition?: number;
-  colorOverride?: [number, number, number];
-  primaryColorOverride?: [number, number, number];
-  secondaryColorOverride?: [number, number, number];
   kelvin?: number; // si está presente, se manda color_temp_kelvin en vez de rgb_color
+}
+
+// Pintar un conjunto puntual de lámparas: lo usan tanto la sincronización con
+// la portada como la vuelta al color base de las que se sacan del grupo.
+export async function setEntitiesColor(
+  entityIds: string[],
+  rgb: [number, number, number],
+  options: LightUpdateOptions = {}
+): Promise<void> {
+  const s = getSettings();
+  if (!s.haUrl || !s.haToken) {
+    throw new Error("Home Assistant is not configured");
+  }
+  if (entityIds.length === 0) return;
+  await Promise.all(
+    entityIds.map(id =>
+      sendColor(
+        s.haUrl,
+        s.haToken,
+        id,
+        rgb,
+        options.brightness ?? 255,
+        options.transition ?? 1.5,
+        options.kelvin
+      )
+    )
+  );
 }
 
 export async function updateLights(
@@ -17,43 +41,13 @@ export async function updateLights(
   options: LightUpdateOptions = {}
 ): Promise<void> {
   const s = getSettings();
-  const haUrl = s.haUrl;
-  const haToken = s.haToken;
-
-  if (!haUrl || !haToken) {
-    throw new Error("Home Assistant is not configured");
-  }
-
-  const primaryIds = s.primaryEntityIds;
-  const secondaryIds = s.secondaryEntityIds;
-  const allIds: string[] = [];
-
-  const brightness = options.brightness ?? 255;
-  const transition = options.transition ?? 1.5;
-  const pColor = options.primaryColorOverride ?? options.colorOverride ?? primaryColor;
-  const sColor = options.secondaryColorOverride ?? options.colorOverride ?? secondaryColor;
-
-  const tasks: Promise<void>[] = [];
-
-  for (const id of primaryIds) {
-    tasks.push(sendColor(haUrl, haToken, id, pColor, brightness, transition, options.kelvin));
-  }
-
-  for (const id of secondaryIds) {
-    tasks.push(sendColor(haUrl, haToken, id, sColor, brightness, transition, options.kelvin));
-  }
-
-  if (primaryIds.length === 0 && secondaryIds.length === 0 && allIds.length > 0) {
-    for (const id of allIds) {
-      tasks.push(sendColor(haUrl, haToken, id, pColor, brightness, transition, options.kelvin));
-    }
-  }
-
-  if (tasks.length === 0) {
+  if (s.primaryEntityIds.length === 0 && s.secondaryEntityIds.length === 0) {
     throw new Error("No light entities configured");
   }
-
-  await Promise.all(tasks);
+  await Promise.all([
+    setEntitiesColor(s.primaryEntityIds, primaryColor, options),
+    setEntitiesColor(s.secondaryEntityIds, secondaryColor, options),
+  ]);
 }
 
 async function sendColor(
@@ -81,6 +75,32 @@ async function sendColor(
       timeout: 5000,
     }
   );
+}
+
+export interface HaLight {
+  entityId: string;
+  name: string;
+  on: boolean;
+}
+
+export async function listLights(): Promise<HaLight[]> {
+  const s = getSettings();
+  if (!s.haUrl || !s.haToken) {
+    throw new Error("Home Assistant is not configured");
+  }
+  const res = await axios.get(`${s.haUrl}/api/states`, {
+    headers: { Authorization: `Bearer ${s.haToken}` },
+    timeout: 8000,
+  });
+  const states = Array.isArray(res.data) ? res.data : [];
+  return states
+    .filter((e: any) => typeof e?.entity_id === "string" && e.entity_id.startsWith("light."))
+    .map((e: any) => ({
+      entityId: e.entity_id as string,
+      name: (e.attributes?.friendly_name as string) || (e.entity_id as string).slice(6).replace(/_/g, " "),
+      on: e.state === "on",
+    }))
+    .sort((a: HaLight, b: HaLight) => a.name.localeCompare(b.name));
 }
 
 export async function getCurrentLightState(): Promise<{

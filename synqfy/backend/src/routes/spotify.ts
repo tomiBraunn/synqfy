@@ -13,29 +13,24 @@ import {
   getLightState,
   setBrightness,
   setTransition,
-  applyColors,
   isNightNow,
 } from "../services/lightsController";
-import { setPartyMode, getAutomationState } from "../services/automation";
-import { getCurrentLightState } from "../services/homeassistant";
-import { getHistory, PRESETS } from "../store";
-import { pickLightColor, pickSecondaryColor } from "../utils/colors";
+import { reapply } from "../services/automation";
+import { getCurrentLightState, listLights } from "../services/homeassistant";
+import { getHistory } from "../store";
 import { getLyrics } from "../services/lyrics";
 
 const router = Router();
-let activePreset: string | null = null;
 
 router.get("/now-playing", (_req: Request, res: Response) => {
   const snap = getSnapshot();
   const light = getLightState();
-  const auto = getAutomationState();
 
   if (!snap.playing) {
     res.json({
       playing: false,
       lightsError: light.lastError,
       night: isNightNow(),
-      party: auto.partyOn,
     });
     return;
   }
@@ -53,45 +48,16 @@ router.get("/now-playing", (_req: Request, res: Response) => {
     durationMs: snap.durationMs,
     volume: snap.volume,
     palette: snap.palette,
-    lightsError: light.lastError,
-    night: isNightNow(),
-    party: auto.partyOn,
-  });
-});
-
-router.post("/lights/update", async (req: Request, res: Response) => {
-  const palette = getSnapshot().palette;
-  if (!palette) {
-    res.status(400).json({ error: "No palette available yet" });
-    return;
-  }
-  const { brightness, transition, primaryColor, secondaryColor } = req.body || {};
-  if (typeof brightness === "number") setBrightness(brightness);
-  if (typeof transition === "number") setTransition(transition);
-
-  const primary = (primaryColor as [number, number, number]) ?? pickLightColor(palette);
-  const secondary = (secondaryColor as [number, number, number]) ?? pickSecondaryColor(palette);
-
-  await applyColors(primary, secondary);
-  const light = getLightState();
-  res.json({
-    success: light.lastError === null,
-    error: light.lastError ?? undefined,
-    primary,
-    secondary,
+    // El color que Spotify pondría alrededor de la tapa, para el fondo.
+    spotifyColor: snap.spotifyColor ?? null,
+    // Lo que realmente reciben las lámparas, para que la UI muestre el color
+    // final y no el swatch crudo de la portada.
+    lightColors: snap.lightColors ?? null,
     brightness: light.brightness,
     transition: light.transition,
+    lightsError: light.lastError,
+    night: isNightNow(),
   });
-});
-
-router.post("/lights/party", (req: Request, res: Response) => {
-  const { on } = req.body || {};
-  if (typeof on !== "boolean") {
-    res.status(400).json({ error: "on (boolean) required" });
-    return;
-  }
-  setPartyMode(on);
-  res.json({ success: true, party: getAutomationState().partyOn });
 });
 
 router.post("/lights/brightness", (req: Request, res: Response) => {
@@ -101,6 +67,7 @@ router.post("/lights/brightness", (req: Request, res: Response) => {
     return;
   }
   setBrightness(brightness);
+  reapply();
   res.json({ success: true, brightness: getLightState().brightness });
 });
 
@@ -114,6 +81,14 @@ router.post("/lights/transition", (req: Request, res: Response) => {
   res.json({ success: true, transition: getLightState().transition });
 });
 
+router.get("/lights/entities", async (_req: Request, res: Response) => {
+  try {
+    res.json({ lights: await listLights() });
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : "Failed to list lights" });
+  }
+});
+
 router.get("/lights/color", async (_req: Request, res: Response) => {
   try {
     const state = await getCurrentLightState();
@@ -125,40 +100,6 @@ router.get("/lights/color", async (_req: Request, res: Response) => {
   } catch (err) {
     res.status(502).json({ error: err instanceof Error ? err.message : "Failed to read light state" });
   }
-});
-
-router.get("/lights/presets", (_req: Request, res: Response) => {
-  res.json({ presets: PRESETS, active: activePreset });
-});
-
-router.post("/lights/preset", async (req: Request, res: Response) => {
-  const { name } = req.body;
-  const preset = PRESETS.find(p => p.name === name);
-  if (!preset) {
-    res.status(400).json({ error: "Unknown preset" });
-    return;
-  }
-  activePreset = name;
-  setBrightness(preset.brightness);
-  setTransition(preset.transition);
-
-  const palette = getSnapshot().palette;
-  if (!palette) {
-    res.json({ success: true, preset: name, brightness: preset.brightness, transition: preset.transition });
-    return;
-  }
-  const paletteAny = palette as unknown as Record<string, [number, number, number] | null>;
-  const primary = paletteAny[preset.primarySource] ?? pickLightColor(palette);
-  const secondary = paletteAny[preset.secondarySource] ?? pickSecondaryColor(palette);
-  await applyColors(primary, secondary);
-  const light = getLightState();
-  res.json({
-    success: light.lastError === null,
-    error: light.lastError ?? undefined,
-    preset: name,
-    brightness: light.brightness,
-    transition: light.transition,
-  });
 });
 
 router.get("/history", (_req: Request, res: Response) => {

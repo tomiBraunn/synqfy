@@ -4,6 +4,12 @@ export interface Palette {
   Muted: [number, number, number] | null;
   DarkMuted: [number, number, number] | null;
   LightVibrant: [number, number, number] | null;
+  LightMuted: [number, number, number] | null;
+}
+
+export interface LightColors {
+  primary: [number, number, number];
+  secondary: [number, number, number];
 }
 
 export interface NowPlayingData {
@@ -20,18 +26,19 @@ export interface NowPlayingData {
   durationMs?: number;
   volume?: number;
   palette?: Palette | null;
-  lightsError?: string | null;
-  night?: boolean;
-  party?: boolean;
-}
-
-export interface LightUpdateResult {
-  success: boolean;
-  primary?: [number, number, number];
-  secondary?: [number, number, number];
+  /** El color que Spotify pone alrededor de la tapa. */
+  spotifyColor?: [number, number, number] | null;
+  lightColors?: LightColors | null;
   brightness?: number;
   transition?: number;
-  error?: string;
+  lightsError?: string | null;
+  night?: boolean;
+}
+
+export interface HaLight {
+  entityId: string;
+  name: string;
+  on: boolean;
 }
 
 export interface ConfigData {
@@ -67,15 +74,6 @@ export interface TrackHistoryEntry {
   palette: Palette | null;
 }
 
-export interface Preset {
-  name: string;
-  label: string;
-  primarySource: string;
-  secondarySource: string;
-  brightness: number;
-  transition: number;
-}
-
 export interface NightModeSettings {
   enabled: boolean;
   start: string;
@@ -96,9 +94,10 @@ export interface AppSettings {
   pauseBrightness: number;
   pauseTimeoutSec: number;
   pauseAction: "baseColor" | "off";
-  partySpeedSec: number;
   nightMode: NightModeSettings;
   lightsEnabled: boolean;
+  /** El backend nunca manda los secretos: solo si ya hay uno guardado. */
+  secretsSet?: { haToken: boolean; spotifyClientSecret: boolean };
 }
 
 export interface LyricLine {

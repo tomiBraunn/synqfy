@@ -6,7 +6,7 @@ product
 
 ## Users
 
-People with smart lights (Home Assistant) and a Spotify subscription who want their room lighting to react to the music they're playing. They use it at home, often in dim/dark ambient settings, while listening to music. The primary job is passive enjoyment — the lights should just follow the music — with occasional manual control (skip, volume, presets).
+People with smart lights (Home Assistant) and a Spotify subscription who want their room lighting to react to the music they're playing. They use it at home, often in dim/dark ambient settings, while listening to music. The primary job is passive enjoyment — the lights should just follow the music — with occasional manual control (skip, volume, which lamps follow the music).
 
 ## Product Purpose
 

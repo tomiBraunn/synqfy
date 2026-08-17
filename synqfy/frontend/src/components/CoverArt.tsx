@@ -1,20 +1,18 @@
 import { useMemo } from "react";
 import type { NowPlayingData, Palette } from "../types";
+import { rgbToCss } from "../utils/rgb";
 
 interface CoverArtProps {
   data: NowPlayingData;
   palette: Palette | null;
 }
 
-function rgbToCss(rgb: [number, number, number] | null): string {
-  if (!rgb) return "transparent";
-  return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-}
-
 export default function CoverArt({ data, palette }: CoverArtProps) {
+  // El halo alrededor de la tapa usa el mismo color que Spotify pone detrás.
   const glowColor = useMemo(() => {
+    if (data.spotifyColor) return rgbToCss(data.spotifyColor);
     return palette?.Vibrant ? rgbToCss(palette.Vibrant) : "rgba(29,185,84,0.3)";
-  }, [palette]);
+  }, [data.spotifyColor, palette]);
 
   return (
     <div className="cover-panel">

@@ -1,25 +1,19 @@
-import { getSettings } from "../settings";
-import { applyPalette, applyColors, applyBaseColor, turnOff } from "./lightsController";
-import type { Palette } from "../utils/colors";
+import { getSettings, AppSettings } from "../settings";
+import { applyLightColors, applyBaseColor, applyBaseColorTo, turnOff } from "./lightsController";
+import type { LightColors } from "../utils/colors";
 
-let currentPalette: Palette | null = null;
-let playing = false;
+let currentLight: LightColors | null = null;
+// null = todavía no sabemos qué está haciendo Spotify (arranque del backend).
+let playing: boolean | null = null;
 let pauseTimer: ReturnType<typeof setTimeout> | null = null;
 let pauseActionDone = false;
-let partyOn = false;
-let partyTimer: ReturnType<typeof setInterval> | null = null;
-let partyIndex = 0;
 
-const PARTY_KEYS: (keyof Palette)[] = [
-  "Vibrant",
-  "LightVibrant",
-  "Muted",
-  "DarkVibrant",
-  "DarkMuted",
-];
+export function getAutomationState(): { pauseActionDone: boolean } {
+  return { pauseActionDone };
+}
 
-export function getAutomationState(): { partyOn: boolean; pauseActionDone: boolean } {
-  return { partyOn, pauseActionDone };
+function assignedIds(s: AppSettings): string[] {
+  return [...s.primaryEntityIds, ...s.secondaryEntityIds];
 }
 
 function clearPauseTimer(): void {
@@ -29,86 +23,93 @@ function clearPauseTimer(): void {
   }
 }
 
-function stopPartyTimer(): void {
-  if (partyTimer) {
-    clearInterval(partyTimer);
-    partyTimer = null;
-  }
+function runPauseAction(): void {
+  pauseActionDone = true;
+  if (getSettings().pauseAction === "off") void turnOff();
+  else void applyBaseColor();
 }
 
-function partyTick(): void {
-  if (!currentPalette) return;
-  const colors = PARTY_KEYS
-    .map(k => currentPalette![k])
-    .filter((c): c is [number, number, number] => c !== null);
-  if (colors.length === 0) return;
-  const primary = colors[partyIndex % colors.length];
-  const secondary = colors[(partyIndex + 1) % colors.length];
-  partyIndex++;
-  void applyColors(primary, secondary);
+// Al pausar (o al quedarse Spotify sin nada sonando) esperamos pauseTimeoutSec
+// antes de soltar el color de la canción, para que un salto de track o un
+// pausar-y-seguir no dispare un parpadeo.
+function schedulePauseAction(): void {
+  clearPauseTimer();
+  if (pauseActionDone) return;
+  pauseTimer = setTimeout(() => {
+    pauseTimer = null;
+    runPauseAction();
+  }, getSettings().pauseTimeoutSec * 1000);
 }
 
-function startPartyTimer(): void {
-  stopPartyTimer();
-  partyTick();
-  partyTimer = setInterval(partyTick, getSettings().partySpeedSec * 1000);
-}
-
-export function onTrackChange(palette: Palette | null): void {
-  currentPalette = palette;
-  partyIndex = 0;
-  if (!getSettings().lightsEnabled || !palette) return;
-  if (!partyOn && !pauseActionDone) {
-    void applyPalette(palette);
+export function onTrackChange(light: LightColors | null): void {
+  currentLight = light;
+  if (!getSettings().lightsEnabled || !light) return;
+  if (!pauseActionDone) {
+    void applyLightColors(light);
   }
 }
 
 export function onPlayStateChange(isPlaying: boolean): void {
   if (isPlaying === playing) return;
   playing = isPlaying;
+  clearPauseTimer();
 
-  if (isPlaying) {
-    clearPauseTimer();
-    if (getSettings().lightsEnabled) {
-      if (pauseActionDone) {
-        pauseActionDone = false;
-        if (currentPalette && !partyOn) void applyPalette(currentPalette);
-      }
-      if (partyOn) startPartyTimer();
-    } else {
-      pauseActionDone = false;
-    }
+  if (!isPlaying) {
+    if (getSettings().lightsEnabled) schedulePauseAction();
     return;
   }
 
-  stopPartyTimer();
-  if (!getSettings().lightsEnabled) return;
-  clearPauseTimer();
-  pauseTimer = setTimeout(() => {
-    pauseActionDone = true;
-    if (getSettings().pauseAction === "off") void turnOff();
-    else void applyBaseColor();
-  }, getSettings().pauseTimeoutSec * 1000);
+  if (!getSettings().lightsEnabled) {
+    pauseActionDone = false;
+    return;
+  }
+  if (pauseActionDone) {
+    pauseActionDone = false;
+    if (currentLight) void applyLightColors(currentLight);
+  }
 }
 
-export function setPartyMode(on: boolean): void {
-  partyOn = on;
-  if (on) {
-    if (playing && getSettings().lightsEnabled) startPartyTimer();
+// Vuelve a mandar lo que las lámparas deberían estar mostrando ahora: el color
+// de la portada, o el color base si ya se ejecutó la acción de pausa. Lo usan
+// los sliders de brillo y transición.
+export function reapply(): void {
+  if (!getSettings().lightsEnabled) return;
+  if (pauseActionDone) {
+    runPauseAction();
     return;
   }
-  stopPartyTimer();
-  if (currentPalette && getSettings().lightsEnabled && !pauseActionDone) {
-    void applyPalette(currentPalette);
+  if (currentLight) void applyLightColors(currentLight);
+}
+
+// Una lámpara que sale del grupo —rol "No", o apagar la sincronización entera—
+// no se queda congelada con el color de la última canción: vuelve al color por
+// defecto de ajustes.
+export function onSettingsChange(before: AppSettings, after: AppSettings): void {
+  const dropped = assignedIds(before).filter(id => !assignedIds(after).includes(id));
+
+  if (before.lightsEnabled && !after.lightsEnabled) {
+    clearPauseTimer();
+    pauseActionDone = false;
+    void applyBaseColorTo(assignedIds(before));
+    return;
   }
+
+  if (dropped.length > 0) void applyBaseColorTo(dropped);
+  if (!after.lightsEnabled) return;
+
+  if (playing === false) {
+    // Se prende la sincronización con la música en pausa: no tiene sentido
+    // pintar el color de la canción para apagarlo cinco segundos después.
+    clearPauseTimer();
+    runPauseAction();
+    return;
+  }
+  reapply();
 }
 
 export function resetAutomationForTest(): void {
   clearPauseTimer();
-  stopPartyTimer();
-  currentPalette = null;
-  playing = false;
+  currentLight = null;
+  playing = null;
   pauseActionDone = false;
-  partyOn = false;
-  partyIndex = 0;
 }

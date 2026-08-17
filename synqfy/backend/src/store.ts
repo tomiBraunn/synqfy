@@ -11,16 +11,8 @@ export interface TrackHistoryEntry {
     Muted: [number, number, number] | null;
     DarkMuted: [number, number, number] | null;
     LightVibrant: [number, number, number] | null;
+    LightMuted: [number, number, number] | null;
   } | null;
-}
-
-export interface LightPreset {
-  name: string;
-  label: string;
-  primarySource: keyof TrackHistoryEntry["palette"] extends never ? string : string;
-  secondarySource: string;
-  brightness: number;
-  transition: number;
 }
 
 const history: TrackHistoryEntry[] = [];
@@ -59,38 +51,3 @@ export function addToHistory(entry: TrackHistoryEntry): void {
 export function getHistory(): TrackHistoryEntry[] {
   return history;
 }
-
-export const PRESETS: LightPreset[] = [
-  {
-    name: "relax",
-    label: "Relax",
-    primarySource: "Muted",
-    secondarySource: "DarkMuted",
-    brightness: 120,
-    transition: 3,
-  },
-  {
-    name: "party",
-    label: "Party",
-    primarySource: "Vibrant",
-    secondarySource: "LightVibrant",
-    brightness: 255,
-    transition: 0.5,
-  },
-  {
-    name: "cinema",
-    label: "Cinema",
-    primarySource: "DarkVibrant",
-    secondarySource: "DarkMuted",
-    brightness: 80,
-    transition: 2,
-  },
-  {
-    name: "focus",
-    label: "Focus",
-    primarySource: "LightVibrant",
-    secondarySource: "Muted",
-    brightness: 200,
-    transition: 1.5,
-  },
-];

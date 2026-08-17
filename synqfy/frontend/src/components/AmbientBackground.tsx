@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { Palette } from "../types";
+import { rgbToCss } from "../utils/rgb";
 
 interface AmbientBackgroundProps {
   coverUrl: string | null;
   palette: Palette | null;
+  /** El color extraído al estilo Spotify: es el que tiñe el fondo. */
+  color?: [number, number, number] | null;
 }
 
 interface Layer {
@@ -11,11 +14,7 @@ interface Layer {
   key: number;
 }
 
-function rgbToCss(rgb: [number, number, number]): string {
-  return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-}
-
-export default function AmbientBackground({ coverUrl, palette }: AmbientBackgroundProps) {
+export default function AmbientBackground({ coverUrl, palette, color }: AmbientBackgroundProps) {
   const [layers, setLayers] = useState<Layer[]>([]);
   const keyRef = useRef(0);
 
@@ -30,10 +29,11 @@ export default function AmbientBackground({ coverUrl, palette }: AmbientBackgrou
 
   const vibrant = palette?.Vibrant ? rgbToCss(palette.Vibrant) : "rgb(29,185,84)";
   const dark = palette?.DarkVibrant ? rgbToCss(palette.DarkVibrant) : "rgb(10,10,10)";
+  const tint = color ? rgbToCss(color) : null;
 
   return (
     <div className="ambient-bg" aria-hidden="true">
-      {layers.length === 0 && (
+      {layers.length === 0 && !tint && (
         <div
           className="ambient-bg-fallback"
           style={{
@@ -48,6 +48,14 @@ export default function AmbientBackground({ coverUrl, palette }: AmbientBackgrou
           style={{ backgroundImage: `url(${layer.url})` }}
         />
       ))}
+      {/* Como el reproductor de Spotify: el color baja desde arriba y se apaga
+          hacia el fondo, en vez de teñir la pantalla entera de punta a punta. */}
+      {tint && (
+        <div
+          className="ambient-bg-tint"
+          style={{ background: `linear-gradient(180deg, ${tint} 0%, transparent 65%)` }}
+        />
+      )}
       <div className="ambient-bg-scrim" />
     </div>
   );

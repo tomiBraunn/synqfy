@@ -4,29 +4,27 @@ import os from "os";
 import path from "path";
 
 vi.mock("./lightsController", () => ({
-  applyPalette: vi.fn().mockResolvedValue(undefined),
-  applyColors: vi.fn().mockResolvedValue(undefined),
+  applyLightColors: vi.fn().mockResolvedValue(undefined),
   applyBaseColor: vi.fn().mockResolvedValue(undefined),
+  applyBaseColorTo: vi.fn().mockResolvedValue(undefined),
   turnOff: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { applyPalette, applyColors, applyBaseColor, turnOff } from "./lightsController";
+import { applyLightColors, applyBaseColor, applyBaseColorTo, turnOff } from "./lightsController";
 import {
   onTrackChange,
   onPlayStateChange,
-  setPartyMode,
+  onSettingsChange,
+  reapply,
   getAutomationState,
   resetAutomationForTest,
 } from "./automation";
-import { resetSettingsForTest, updateSettings } from "../settings";
-import type { Palette } from "../utils/colors";
+import { resetSettingsForTest, updateSettings, getSettings } from "../settings";
+import type { LightColors } from "../utils/colors";
 
-const PALETTE: Palette = {
-  Vibrant: [200, 30, 30],
-  DarkVibrant: [80, 10, 10],
-  Muted: [120, 100, 90],
-  DarkMuted: [60, 50, 45],
-  LightVibrant: [250, 180, 180],
+const LIGHT: LightColors = {
+  primary: [200, 30, 30],
+  secondary: [30, 60, 200],
 };
 
 beforeEach(() => {
@@ -34,7 +32,12 @@ beforeEach(() => {
   vi.useFakeTimers();
   resetSettingsForTest();
   resetAutomationForTest();
-  updateSettings({ lightsEnabled: true, pauseTimeoutSec: 5, partySpeedSec: 8 });
+  updateSettings({
+    lightsEnabled: true,
+    pauseTimeoutSec: 5,
+    primaryEntityIds: ["light.a"],
+    secondaryEntityIds: ["light.b"],
+  });
   vi.clearAllMocks();
 });
 
@@ -44,7 +47,7 @@ afterEach(() => {
 
 describe("pausa", () => {
   it("ejecuta color base a los pauseTimeoutSec de pausar", () => {
-    onTrackChange(PALETTE);
+    onTrackChange(LIGHT);
     onPlayStateChange(true);
     onPlayStateChange(false);
     expect(applyBaseColor).not.toHaveBeenCalled();
@@ -53,9 +56,17 @@ describe("pausa", () => {
     expect(getAutomationState().pauseActionDone).toBe(true);
   });
 
+  it("vuelve al color base aunque el backend arranque con la musica pausada", () => {
+    // Primera señal de Spotify: pausado. Sin haber visto un "playing" antes.
+    onTrackChange(LIGHT);
+    onPlayStateChange(false);
+    vi.advanceTimersByTime(5000);
+    expect(applyBaseColor).toHaveBeenCalledTimes(1);
+  });
+
   it("apaga las luces cuando pauseAction es off", () => {
     updateSettings({ pauseAction: "off" });
-    onTrackChange(PALETTE);
+    onTrackChange(LIGHT);
     onPlayStateChange(true);
     onPlayStateChange(false);
     vi.advanceTimersByTime(5000);
@@ -64,7 +75,7 @@ describe("pausa", () => {
   });
 
   it("cancela el timer si se reanuda antes del timeout", () => {
-    onTrackChange(PALETTE);
+    onTrackChange(LIGHT);
     onPlayStateChange(true);
     onPlayStateChange(false);
     vi.advanceTimersByTime(3000);
@@ -74,19 +85,19 @@ describe("pausa", () => {
   });
 
   it("restaura la paleta del track al reanudar despues del timeout", () => {
-    onTrackChange(PALETTE);
+    onTrackChange(LIGHT);
     onPlayStateChange(true);
     onPlayStateChange(false);
     vi.advanceTimersByTime(5000);
     vi.clearAllMocks();
     onPlayStateChange(true);
-    expect(applyPalette).toHaveBeenCalledWith(PALETTE);
+    expect(applyLightColors).toHaveBeenCalledWith(LIGHT);
     expect(getAutomationState().pauseActionDone).toBe(false);
   });
 
   it("no hace nada con lightsEnabled false", () => {
     updateSettings({ lightsEnabled: false });
-    onTrackChange(PALETTE);
+    onTrackChange(LIGHT);
     onPlayStateChange(true);
     onPlayStateChange(false);
     vi.advanceTimersByTime(60000);
@@ -98,52 +109,82 @@ describe("pausa", () => {
 describe("cambio de track", () => {
   it("aplica la paleta si las luces estan activadas", () => {
     onPlayStateChange(true);
-    onTrackChange(PALETTE);
-    expect(applyPalette).toHaveBeenCalledWith(PALETTE);
+    onTrackChange(LIGHT);
+    expect(applyLightColors).toHaveBeenCalledWith(LIGHT);
   });
 
   it("no aplica nada con luces desactivadas", () => {
     updateSettings({ lightsEnabled: false });
-    onTrackChange(PALETTE);
-    expect(applyPalette).not.toHaveBeenCalled();
+    onTrackChange(LIGHT);
+    expect(applyLightColors).not.toHaveBeenCalled();
   });
 });
 
-describe("modo fiesta", () => {
-  it("rota colores cada partySpeedSec mientras suena", () => {
-    onTrackChange(PALETTE);
+describe("reapply", () => {
+  it("reaplica la paleta actual", () => {
+    onTrackChange(LIGHT);
     onPlayStateChange(true);
     vi.clearAllMocks();
-    setPartyMode(true);
-    expect(applyColors).toHaveBeenCalledTimes(1); // tick inmediato
-    vi.advanceTimersByTime(8000);
-    expect(applyColors).toHaveBeenCalledTimes(2);
-    vi.advanceTimersByTime(16000);
-    expect(applyColors).toHaveBeenCalledTimes(4);
+    reapply();
+    expect(applyLightColors).toHaveBeenCalledWith(LIGHT);
   });
 
-  it("se detiene al pausar y se retoma al reanudar", () => {
-    onTrackChange(PALETTE);
+  it("mantiene el color base si ya se ejecuto la accion de pausa", () => {
+    onTrackChange(LIGHT);
     onPlayStateChange(true);
-    setPartyMode(true);
-    vi.clearAllMocks();
     onPlayStateChange(false);
-    vi.advanceTimersByTime(24000);
-    expect(applyColors).not.toHaveBeenCalled();
-    onPlayStateChange(true);
-    vi.advanceTimersByTime(8000);
-    expect(applyColors).toHaveBeenCalled();
+    vi.advanceTimersByTime(5000);
+    vi.clearAllMocks();
+    reapply();
+    expect(applyBaseColor).toHaveBeenCalledTimes(1);
+    expect(applyLightColors).not.toHaveBeenCalled();
   });
 
-  it("al apagarlo vuelve a la paleta del track", () => {
-    onTrackChange(PALETTE);
+  it("no toca las luces si estan desactivadas", () => {
+    onTrackChange(LIGHT);
     onPlayStateChange(true);
-    setPartyMode(true);
+    updateSettings({ lightsEnabled: false });
     vi.clearAllMocks();
-    setPartyMode(false);
-    expect(getAutomationState().partyOn).toBe(false);
-    expect(applyPalette).toHaveBeenCalledWith(PALETTE);
-    vi.advanceTimersByTime(30000);
-    expect(applyColors).not.toHaveBeenCalled();
+    reapply();
+    expect(applyLightColors).not.toHaveBeenCalled();
+  });
+});
+
+describe("cambios de ajustes", () => {
+  it("una lampara que pasa a 'No' vuelve al color base", () => {
+    const before = getSettings();
+    const after = updateSettings({ secondaryEntityIds: [] });
+    onSettingsChange(before, after);
+    expect(applyBaseColorTo).toHaveBeenCalledWith(["light.b"]);
+  });
+
+  it("apagar la sincronizacion devuelve todas las lamparas al color base", () => {
+    const before = getSettings();
+    const after = updateSettings({ lightsEnabled: false });
+    onSettingsChange(before, after);
+    expect(applyBaseColorTo).toHaveBeenCalledWith(["light.a", "light.b"]);
+  });
+
+  it("prender la sincronizacion con la musica pausada va directo al color base", () => {
+    updateSettings({ lightsEnabled: false });
+    onTrackChange(LIGHT);
+    onPlayStateChange(false);
+    const before = getSettings();
+    const after = updateSettings({ lightsEnabled: true });
+    vi.clearAllMocks();
+    onSettingsChange(before, after);
+    expect(applyBaseColor).toHaveBeenCalledTimes(1);
+    expect(applyLightColors).not.toHaveBeenCalled();
+  });
+
+  it("agregar una lampara con musica sonando la pinta con la paleta", () => {
+    onTrackChange(LIGHT);
+    onPlayStateChange(true);
+    const before = getSettings();
+    const after = updateSettings({ primaryEntityIds: ["light.a", "light.c"] });
+    vi.clearAllMocks();
+    onSettingsChange(before, after);
+    expect(applyBaseColorTo).not.toHaveBeenCalled();
+    expect(applyLightColors).toHaveBeenCalledWith(LIGHT);
   });
 });

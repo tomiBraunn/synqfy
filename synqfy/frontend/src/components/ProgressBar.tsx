@@ -1,17 +1,11 @@
 import { useState, useRef, useCallback } from "react";
 import axios from "axios";
+import { formatTime } from "../utils/format";
 
 interface ProgressBarProps {
   progressMs: number;
   durationMs: number;
   onSeek?: () => void;
-}
-
-function formatTime(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, "0")}`;
 }
 
 export default function ProgressBar({ progressMs, durationMs, onSeek }: ProgressBarProps) {

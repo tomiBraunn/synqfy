@@ -35,7 +35,11 @@ export default function KioskView({ data, palette, onExit }: KioskViewProps) {
 
   return (
     <div className={`kiosk ${cursorHidden ? "kiosk-no-cursor" : ""}`} onClick={onExit}>
-      <AmbientBackground coverUrl={data.coverUrl ?? null} palette={palette} />
+      <AmbientBackground
+        coverUrl={data.coverUrl ?? null}
+        palette={palette}
+        color={data.spotifyColor ?? null}
+      />
       <div className="kiosk-content">
         {data.coverUrl && (
           <img src={data.coverUrl} alt="" className="kiosk-cover" draggable={false} />

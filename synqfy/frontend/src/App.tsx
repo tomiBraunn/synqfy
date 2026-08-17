@@ -7,7 +7,6 @@ import CoverArt from "./components/CoverArt";
 import ProgressBar from "./components/ProgressBar";
 import PlayerControls from "./components/PlayerControls";
 import VolumeControl from "./components/VolumeControl";
-import LightPanel from "./components/LightPanel";
 import MediaTabs from "./components/MediaTabs";
 import TopBar from "./components/TopBar";
 import SettingsModal from "./components/SettingsModal";
@@ -56,20 +55,13 @@ export default function App() {
   useEffect(() => {
     if (trackChanged && data?.track) {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      setToast(`Now playing: ${data.track} — ${data.artist}`);
+      setToast(`${data.track} — ${data.artist}`);
       toastTimerRef.current = setTimeout(() => {
         setToast(null);
         clearTrackChanged();
       }, 3500);
     }
   }, [trackChanged, data, clearTrackChanged]);
-
-  const showToast = useCallback((msg: string) => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToast(msg);
-    toastTimerRef.current = setTimeout(() => setToast(null), 2500);
-  }, []);
-  void showToast;
 
   const handlePlayPause = useCallback(() => {
     if (!data) return;
@@ -94,6 +86,12 @@ export default function App() {
     const vol = Math.max(0, (data?.volume ?? 50) - 10);
     axios.put("/api/player/volume", { volume: vol }).then(() => refresh()).catch(() => {});
   }, [data, refresh]);
+
+  const toggleLights = useCallback(() => {
+    axios.put<AppSettings>("/api/settings", { lightsEnabled: !settings?.lightsEnabled })
+      .then(res => setSettings(res.data))
+      .catch(() => setToast("No se pudo cambiar las luces"));
+  }, [settings]);
 
   useKeyboardShortcuts({
     onPlayPause: handlePlayPause,
@@ -122,9 +120,9 @@ export default function App() {
         <AmbientBackground coverUrl={null} palette={null} />
         <div className="login-content">
           <h1 className="app-title">synqfy</h1>
-          <p className="app-subtitle">Sync your lights with Spotify</p>
+          <p className="app-subtitle">Tus luces siguen a Spotify</p>
           <button className="login-button" onClick={handleLogin}>
-            Connect with Spotify
+            Conectar con Spotify
           </button>
         </div>
       </div>
@@ -137,51 +135,62 @@ export default function App() {
 
   return (
     <div className="app">
-      <AmbientBackground coverUrl={data?.coverUrl ?? null} palette={palette} />
+      <AmbientBackground
+        coverUrl={data?.coverUrl ?? null}
+        palette={palette}
+        color={data?.spotifyColor ?? null}
+      />
       <Toast message={toast} />
-      <TopBar onOpenSettings={() => setSettingsOpen(true)} onEnterKiosk={() => setKiosk(true)} />
+      <TopBar
+        lightsEnabled={settings?.lightsEnabled ?? false}
+        night={data?.night ?? false}
+        onToggleLights={toggleLights}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onEnterKiosk={() => setKiosk(true)}
+      />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={setSettings} />
 
-      {!data?.playing && !data ? (
+      {!data ? (
         <Skeleton />
-      ) : data?.playing ? (
-        <div className="main-layout">
-          <CoverArt data={data} palette={palette} />
+      ) : (
+        <main className="stage">
+          {/* El panel lateral queda siempre disponible: elegir lámparas o mirar
+              la cola no depende de que haya música sonando. */}
+          <section className="player">
+            {data.playing ? (
+              <>
+                <CoverArt data={data} palette={palette} />
 
-          <div className="controls-panel">
-            <div className="track-info">
-              <h1 className="track-name">{data.track}</h1>
-              <p className="track-artist">{data.artist}</p>
-              <p className="track-album">{data.album}</p>
-            </div>
+                <div className="track-info">
+                  <h1 className="track-name">{data.track}</h1>
+                  <p className="track-artist">{data.artist}</p>
+                  <p className="track-album">{data.album}</p>
+                </div>
 
-            <ProgressBar
-              progressMs={data.progressMs ?? 0}
-              durationMs={data.durationMs ?? 0}
-              onSeek={refresh}
-            />
+                <ProgressBar
+                  progressMs={data.progressMs ?? 0}
+                  durationMs={data.durationMs ?? 0}
+                  onSeek={refresh}
+                />
 
-            <PlayerControls
-              isPlaying={data.isPlaying ?? false}
-              onAction={refresh}
-            />
+                <PlayerControls isPlaying={data.isPlaying ?? false} onAction={refresh} />
 
-            <VolumeControl initialVolume={data.volume ?? 50} />
+                <VolumeControl initialVolume={data.volume ?? 50} />
+              </>
+            ) : (
+              <p className="disconnected">No hay nada sonando en Spotify</p>
+            )}
+          </section>
 
-            <LightPanel
-              palette={palette}
+          <aside className="side">
+            <MediaTabs
+              trackId={trackId}
               data={data}
               settings={settings}
               onSettingsChange={setSettings}
             />
-
-            <MediaTabs trackId={trackId} data={data} />
-          </div>
-        </div>
-      ) : (
-        <div className="empty-state">
-          <p className="disconnected">No track is currently playing</p>
-        </div>
+          </aside>
+        </main>
       )}
     </div>
   );
